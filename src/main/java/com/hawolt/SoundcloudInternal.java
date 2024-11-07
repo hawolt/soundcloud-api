@@ -41,6 +41,11 @@ public class SoundcloudInternal {
         MANAGER.get(clazz).add(manager);
     }
 
+    public static void replace(Class<? extends Hydratable> clazz, HydratableInterface<? extends Hydratable> manager) {
+        MANAGER.put(clazz, new ArrayList<>());
+        MANAGER.get(clazz).add(manager);
+    }
+
     @SuppressWarnings("all")
     private static <T> T modify(Object type) {
         return (T) type;

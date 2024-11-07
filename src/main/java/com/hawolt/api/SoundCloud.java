@@ -30,30 +30,10 @@ public class SoundCloud {
         SoundcloudInternal.register(User.class, new UserManager(INSTANCE.userObjectCallback));
     }
 
-    private static final Map<Long, Track> tracks = new HashMap<>();
-    private static final Map<String, Job> cache = new HashMap<>();
+    public final Map<Long, Track> tracks = new HashMap<>();
+    public final Map<String, Job> cache = new HashMap<>();
 
-    private final ObjectCallback<Track> trackObjectCallback = (link, track, args) -> {
-        SoundCloud.cache.get(args[0]).add(args[1], track);
-        SoundCloud.tracks.put(track.getId(), track);
-    };
-
-    private final ObjectCallback<User> userObjectCallback = (link, user, args) -> {
-        Query<Track> query;
-        if (link.endsWith("likes")) {
-            query = new LikeQuery(user.getUserId());
-        } else {
-            query = new UploadQuery(user.getUserId());
-        }
-        try {
-            SoundCloud.cache.get(args[0]).complete(link, Explorer.search(query));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    };
-
-    private final ObjectCallback<Playlist> playlistObjectCallback = (link, playlist, args) -> {
-        SoundCloud.cache.get(args[0]).update(link, playlist);
+    private Action<Playlist> action = (playlist, uuid, args) -> {
         for (long id : playlist) {
             try {
                 TrackQuery query = new TrackQuery(
@@ -64,25 +44,59 @@ public class SoundCloud {
                 );
                 ObjectCollection<Track> collection = Explorer.browse(query);
                 for (Track track : collection) {
-                    if (SoundCloud.tracks.containsKey(track.getId())) {
-                        SoundCloud.cache.get(args[0]).add(args[1], track);
+                    if (tracks.containsKey(track.getId())) {
+                        cache.get(uuid).add(args[0], track);
                     } else {
-                        SoundcloudInternal.load(track.getLink(), args[0], link);
+                        SoundcloudInternal.load(track.getLink(), uuid, args[0]);
                     }
                 }
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                Logger.error(e);
             }
         }
     };
 
-    public static void load(Request<Job> request, String... links) {
+    public final ObjectCallback<Track> trackObjectCallback = (link, track, args) -> {
+        cache.get(args[0]).add(args[1], track);
+        tracks.put(track.getId(), track);
+    };
+
+    public final ObjectCallback<User> userObjectCallback = (link, user, args) -> {
+        Query<Track> query;
+        if (link.endsWith("likes")) {
+            query = new LikeQuery(user.getUserId());
+        } else {
+            query = new UploadQuery(user.getUserId());
+        }
+        try {
+            cache.get(args[0]).complete(link, Explorer.search(query));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    };
+
+    public final ObjectCallback<Playlist> playlistObjectCallback = (link, playlist, args) -> {
+        this.cache.get(args[0]).update(link, playlist);
+        this.action.handle(playlist, args[0], link);
+    };
+
+    public void configure(Action<Playlist> action) {
+        this.action = action;
+    }
+
+    public static String load(Request<Job> request, String... links) {
         String id = UUID.randomUUID().toString();
-        Job job = Job.create(request, links);
-        SoundCloud.cache.put(id, job);
+        Job job = Job.create(id, request, links);
+        SoundCloud instance = getInstance();
+        instance.cache.put(id, job);
         for (String link : links) {
             Logger.info("Load {}", link);
             SoundcloudInternal.load(link, id);
         }
+        return id;
+    }
+
+    public static SoundCloud getInstance() {
+        return INSTANCE;
     }
 }

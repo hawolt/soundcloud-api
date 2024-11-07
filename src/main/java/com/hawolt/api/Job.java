@@ -14,12 +14,14 @@ public class Job {
     private final Map<String, List<Track>> loaded;
     private final Request<Job> request;
     private final String[] targets;
+    private final String id;
 
-    public Job(Request<Job> request, String... targets) {
+    public Job(String id, Request<Job> request, String... targets) {
         this.loaded = new HashMap<>();
         this.cache = new HashMap<>();
         this.request = request;
         this.targets = targets;
+        this.id = id;
     }
 
     private void check() {
@@ -41,11 +43,19 @@ public class Job {
         this.check();
     }
 
-    public static Job create(Request<Job> request, String... targets) {
-        return new Job(request, targets);
-    }
-
     public void update(String link, Playlist playlist) {
         this.cache.put(link, new PlaylistTracker(link, playlist));
+    }
+
+    public String getUUID() {
+        return id;
+    }
+
+    public Map<String, List<Track>> getJobResult() {
+        return loaded;
+    }
+
+    public static Job create(String id, Request<Job> request, String... targets) {
+        return new Job(id, request, targets);
     }
 }
