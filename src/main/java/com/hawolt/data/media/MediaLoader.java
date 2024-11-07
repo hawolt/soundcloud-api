@@ -5,7 +5,9 @@ import com.hawolt.data.media.hydratable.Hydratable;
 import com.hawolt.ionhttp.IonClient;
 import com.hawolt.ionhttp.request.IonRequest;
 import com.hawolt.ionhttp.request.IonResponse;
+import com.hawolt.logger.Logger;
 
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,13 +31,16 @@ public class MediaLoader implements Callable<IonResponse> {
         do {
             IonRequest.SimpleBuilder builder = IonRequest.on(resource);
             builder.addHeader("Host", builder.hostname);
+            builder.addHeader("User-Agent", "SoundCloudAPI-V1.0.0-" + UUID.randomUUID().toString());
             IonRequest request = builder.get();
             response = IonClient.getDefault().execute(request);
             code = response.code();
             if (code == 401) {
                 resource = getNewResourceLocation();
             } else if (code == 429 || code == 403 || code == 203) {
-                Hydratable.snooze((duration *= 3) * 1000L);
+                long delay = (duration *= 3) * 1000L;
+                Logger.debug("Snooze {} for {} on {}", delay, code, resource);
+                Hydratable.snooze(delay);
             }
         } while (code == 429 || code == 403 || code == 401 || code == 203);
         return response;

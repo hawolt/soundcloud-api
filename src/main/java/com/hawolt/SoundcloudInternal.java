@@ -21,7 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-public class Soundcloud {
+public class SoundcloudInternal {
     private static ExecutorService EXECUTOR_SERVICE = Executors.newCachedThreadPool();
     private static final Map<String, MediaInterface<? extends Hydratable>> MAPPING = new HashMap<>();
     private static final Map<Class<? extends Hydratable>, List<HydratableInterface<? extends Hydratable>>> MANAGER = new HashMap<>();
@@ -56,7 +56,7 @@ public class Soundcloud {
 
     public static void load(String source, LoadCallback callback, String... args) {
         String link = source.split("\\?")[0];
-        Logger.debug("Track {}", link);
+        Logger.debug("Load {}", link);
         EXECUTOR_SERVICE.execute(() -> {
             try {
                 MediaLoader loader = new MediaLoader(link);
@@ -110,6 +110,6 @@ public class Soundcloud {
     public static void shutdown() {
         TrackFile.getExecutorService().shutdown();
         Track.getExecutorService().shutdown();
-        Soundcloud.EXECUTOR_SERVICE.shutdown();
+        SoundcloudInternal.EXECUTOR_SERVICE.shutdown();
     }
 }
