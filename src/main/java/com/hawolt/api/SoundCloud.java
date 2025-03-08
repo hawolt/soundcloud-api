@@ -1,5 +1,6 @@
 package com.hawolt.api;
 
+import com.hawolt.LoadCallback;
 import com.hawolt.SoundcloudInternal;
 import com.hawolt.data.media.ObjectCallback;
 import com.hawolt.data.media.hydratable.impl.playlist.Playlist;
@@ -9,6 +10,7 @@ import com.hawolt.data.media.hydratable.impl.track.TrackManager;
 import com.hawolt.data.media.hydratable.impl.user.User;
 import com.hawolt.data.media.hydratable.impl.user.UserManager;
 import com.hawolt.data.media.search.Explorer;
+import com.hawolt.data.media.search.query.CompleteObjectCollection;
 import com.hawolt.data.media.search.query.ObjectCollection;
 import com.hawolt.data.media.search.query.Query;
 import com.hawolt.data.media.search.query.impl.LikeQuery;
@@ -57,7 +59,14 @@ public class SoundCloud {
     };
 
     public final ObjectCallback<Track> trackObjectCallback = (link, track, args) -> {
-        cache.get(args[0]).add(args[1], track);
+        Job target = cache.get(args[0]);
+        if (args.length > 1) {
+            target.add(args[1], track);
+        } else {
+            CompleteObjectCollection<Track> collection = new CompleteObjectCollection<>();
+            collection.getList().add(track);
+            target.complete(link, collection);
+        }
         tracks.put(track.getId(), track);
     };
 
@@ -85,13 +94,17 @@ public class SoundCloud {
     }
 
     public static String load(Request<Job> request, String... links) {
+        return load(null, request, links);
+    }
+
+    public static String load(LoadCallback callback, Request<Job> request, String... links) {
         String id = UUID.randomUUID().toString();
         Job job = Job.create(id, request, links);
         SoundCloud instance = getInstance();
         instance.cache.put(id, job);
         for (String link : links) {
             Logger.info("Load {}", link);
-            SoundcloudInternal.load(link, id);
+            SoundcloudInternal.load(link, callback, id);
         }
         return id;
     }
