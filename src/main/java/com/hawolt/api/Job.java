@@ -38,7 +38,6 @@ public class Job {
     }
 
     public void complete(String link, CompleteObjectCollection<Track> collection) {
-        Logger.info("Done {}", link);
         this.loaded.put(link, collection.getList());
         this.check();
     }
