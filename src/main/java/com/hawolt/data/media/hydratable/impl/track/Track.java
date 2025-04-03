@@ -105,7 +105,7 @@ public class Track extends Hydratable {
 
     public boolean isPro() {
         double difference = Math.abs(fullDuration - duration);
-        return difference < 10000;
+        return difference > 10000;
     }
 
 
