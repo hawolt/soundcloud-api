@@ -17,6 +17,8 @@ import java.util.concurrent.Executors;
 
 
 public class Track extends Hydratable {
+    public static boolean debug = false;
+
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
     private Media media;
     private User user;
@@ -54,7 +56,7 @@ public class Track extends Hydratable {
         this.fullDuration = !o.isNull("full_duration") ? o.getLong("full_duration") : 0;
         this.commentCount = !o.isNull("comment_count") ? o.getInt("comment_count") : 0;
         this.createdAt = Instant.parse(!o.isNull("created_at") ? o.getString("created_at") : String.valueOf(System.currentTimeMillis())).toEpochMilli();
-        Logger.debug("loaded metadata for track {} as {}", id, o);
+        if (debug) Logger.debug("loaded metadata for track {} as {}", id, o);
     }
 
     public CompletableFuture<MP3> retrieveMP3() {
@@ -102,7 +104,8 @@ public class Track extends Hydratable {
     }
 
     public boolean isPro() {
-        return duration != fullDuration;
+        double difference = Math.abs(fullDuration - duration);
+        return difference < 10000;
     }
 
 
