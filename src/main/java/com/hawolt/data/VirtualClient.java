@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 public class VirtualClient {
 
     private static final String SCRIPT_SRC = "<script(.*)src=\"(.*)\"(.*)script>";
-    private static final String SEARCH_STRING = "query:{client_id:\"";
+    private static final String SEARCH_STRING = ",client_id:\"";
     private static final Pattern SCRIPT_PATTERN = Pattern.compile(SCRIPT_SRC);
 
     private static String clientID;
