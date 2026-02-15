@@ -1,15 +1,19 @@
 package com.hawolt.data.media.hydratable.impl.track;
 
+import com.hawolt.data.VirtualClient;
+import com.hawolt.data.media.MediaLoader;
 import com.hawolt.data.media.download.FileManager;
 import com.hawolt.data.media.hydratable.Hydratable;
 import com.hawolt.data.media.track.MP3;
 import com.hawolt.data.media.track.Media;
 import com.hawolt.data.media.track.Tags;
 import com.hawolt.data.media.track.User;
+import com.hawolt.ionhttp.request.IonResponse;
 import com.hawolt.logger.Logger;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -56,16 +60,32 @@ public class Track extends Hydratable {
         this.fullDuration = !o.isNull("full_duration") ? o.getLong("full_duration") : 0;
         this.repostCount = !o.isNull("reposts_count") ? o.getInt("reposts_count") : 0;
         this.commentCount = !o.isNull("comment_count") ? o.getInt("comment_count") : 0;
-        this.createdAt = Instant.parse(!o.isNull("created_at") ? o.getString("created_at") : String.valueOf(System.currentTimeMillis())).toEpochMilli();
-        this.lastModified = Instant.parse(!o.isNull("last_modified") ? o.getString("last_modified") : String.valueOf(0)).toEpochMilli();
+        this.createdAt = !o.isNull("created_at") ? Instant.parse(o.getString("created_at")).toEpochMilli() : System.currentTimeMillis();
+        this.lastModified = !o.isNull("last_modified") ? Instant.parse(o.getString("last_modified")).toEpochMilli() : 0L;
         if (debug) Logger.debug("loaded metadata for track {} as {}", id, o);
     }
 
-    public CompletableFuture<MP3> retrieveMP3() {
+    private void refresh() throws Exception {
+        String url = String.format(
+                "https://api-v2.soundcloud.com/tracks/%d?client_id=%s",
+                id,
+                VirtualClient.getID()
+        );
+        MediaLoader loader = new MediaLoader(url);
+        try (IonResponse response = loader.call()) {
+            JSONObject fresh = new JSONObject(new String(response.body(), StandardCharsets.UTF_8));
+            this.media = new Media(fresh.getJSONObject("media"));
+            this.authorization = fresh.isNull("track_authorization") ? null : fresh.getString("track_authorization");
+        }
+    }
+
+    public CompletableFuture<MP3> retrieveMP3() throws Exception {
+        this.refresh();
         return CompletableFuture.supplyAsync(() -> MP3.load(this, authorization, media.getTranscoding()), EXECUTOR_SERVICE);
     }
 
-    public MP3 getMP3() {
+    public MP3 getMP3() throws Exception {
+        this.refresh();
         return MP3.load(this, authorization, media.getTranscoding());
     }
 

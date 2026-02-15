@@ -41,7 +41,12 @@ public class PlaylistTracker {
     public List<Track> getTrackList() {
         List<Track> list = new LinkedList<>();
         for (Long id : playlist.getList()) {
-            list.add(tracks.get(id));
+            Track track = tracks.get(id);
+            if (track == null) {
+                Logger.warn("Track {} missing from playlist {}", id, link);
+                continue;
+            }
+            list.add(track);
         }
         return list;
     }

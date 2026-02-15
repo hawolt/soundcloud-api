@@ -21,6 +21,7 @@ import com.hawolt.logger.Logger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SoundCloud {
 
@@ -32,8 +33,8 @@ public class SoundCloud {
         SoundcloudInternal.register(User.class, new UserManager(INSTANCE.userObjectCallback));
     }
 
-    public final Map<Long, Track> tracks = new HashMap<>();
-    public final Map<String, Job> cache = new HashMap<>();
+    private final Map<Long, Track> tracks = new ConcurrentHashMap<>();
+    private final Map<String, Job> cache = new ConcurrentHashMap<>();
 
     private Action<Playlist> action = (playlist, uuid, args) -> {
         for (long id : playlist) {

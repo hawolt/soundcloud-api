@@ -3,6 +3,7 @@ package com.hawolt.data.media.search.query;
 import com.hawolt.data.SHA256;
 import com.hawolt.data.media.hydratable.impl.track.Track;
 import com.hawolt.data.media.hydratable.impl.user.User;
+import com.hawolt.logger.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,7 +15,6 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 
 
 public abstract class AdvancedQuery implements RuleSet, Query<Track> {
@@ -84,7 +84,7 @@ public abstract class AdvancedQuery implements RuleSet, Query<Track> {
                 this.blacklistedUser.add(user.toLowerCase());
             }
         } catch (IOException e) {
-
+            Logger.error("Failed to load blacklisted users from {}: {}", file, e.getMessage());
         }
         return this;
     }
@@ -249,12 +249,14 @@ public abstract class AdvancedQuery implements RuleSet, Query<Track> {
         Predicate<Track> base = getMaximumTagThresholdPredicate()
                 .and(getBlacklistedUserPredicate())
                 .and(getBlacklistedTagsPredicate())
-                .and(getAuthenticUserPredicate())
                 .and(getMandatoryTagsPredicate())
                 .and(getTimestampPredicate())
                 .and(getDurationPredicate())
                 .and(getStreamPredicate())
                 .and(getLikePredicate());
+        if (authenticUserOnly) {
+            base = base.and(getAuthenticUserPredicate());
+        }
         for (Predicate<Track> predicate : predicates) {
             base = base.and(predicate);
         }

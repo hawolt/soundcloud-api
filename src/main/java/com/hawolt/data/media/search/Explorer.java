@@ -84,7 +84,6 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
 
     @Override
     public PartialCollection<T> next() {
-        PartialCollection<T> collection = new PartialCollection<>(filter, supplier, transformer);
         if (this.collection == null) {
             this.collection = new PartialCollection<>(filter, supplier, transformer, current.getJSONArray("collection"));
         } else {
@@ -92,12 +91,10 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
                 this.collection = loadNext();
             } catch (Exception e) {
                 Logger.error(e);
+                this.collection = new PartialCollection<>(filter, supplier, transformer);
             }
         }
-        for (T object : this.collection) {
-            collection.append(object);
-        }
-        return this.collection = collection;
+        return this.collection;
     }
 
     private PartialCollection<T> loadNext() throws Exception {

@@ -5,21 +5,23 @@ import com.hawolt.data.media.track.EXTM3U;
 import com.hawolt.data.media.track.MP3;
 import com.hawolt.logger.Logger;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class TrackFile implements IFile, FileCallback {
     private static ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+    private final AtomicInteger fragments = new AtomicInteger(0);
     private final Map<Integer, TrackFragment> map = new HashMap<>();
     private DownloadCallback callback;
     private ExecutorService service;
-    private int fragments;
     private MP3 mp3;
 
     public TrackFile(DownloadCallback callback, MP3 mp3) {
@@ -28,10 +30,13 @@ public class TrackFile implements IFile, FileCallback {
 
     private TrackFile(DownloadCallback callback, MP3 mp3, ExecutorService service) {
         this.service = service;
-        EXTM3U extm3U = mp3.getEXTM3U();
-        if (extm3U == null) return;
-        this.mp3 = mp3;
         this.callback = callback;
+        this.mp3 = mp3;
+        EXTM3U extm3U = mp3.getEXTM3U();
+        if (extm3U == null) {
+            this.callback.onFailure(mp3.getTrack(), -1);
+            return;
+        }
         List<String> list = extm3U.getFragmentList();
         for (int i = 0; i < list.size(); i++) {
             map.put(i, new TrackFragment(this, i, list.get(i)));
@@ -56,22 +61,22 @@ public class TrackFile implements IFile, FileCallback {
 
     @Override
     public byte[] getBytes() {
-        byte[] bytes = new byte[0];
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         for (int i = 0; i < map.size(); i++) {
             TrackFragment fragment = map.get(i);
-            byte[] b = fragment.getBytes();
-            int pointer = bytes.length;
-            bytes = Arrays.copyOf(bytes, bytes.length + fragment.getBytes().length);
-            if (bytes.length - pointer >= 0)
-                System.arraycopy(b, 0, bytes, pointer, bytes.length - pointer);
+            try {
+                out.write(fragment.getBytes());
+            } catch (IOException e) {
+                Logger.error(e);
+            }
         }
-        return bytes;
+        return out.toByteArray();
     }
 
     @Override
     public void onAssembly(int index, IFile file) {
         Logger.debug("Downloaded fragment [{}/{}] of {}", index, map.size() - 1, mp3.getTrack().getPermalink());
-        if (++fragments == map.size()) {
+        if (fragments.incrementAndGet() == map.size()) {
             Logger.debug("Assembled track {}", mp3.getTrack().getPermalink());
             final byte[] bytes = getBytes();
             callback.onCompletion(mp3.getTrack(), bytes);
