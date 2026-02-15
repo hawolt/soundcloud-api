@@ -24,10 +24,18 @@ public class PlaylistTracker {
         this.tracks.put(track.getId(), track);
     }
 
+    public int getCurrentSize() {
+        return tracks.size();
+    }
+
     public boolean isComplete() {
         boolean complete = tracks.size() >= size;
         if (complete) Logger.info("Done {}", link);
         return complete;
+    }
+
+    public int getTargetSize() {
+        return playlist.getList().size();
     }
 
     public List<Track> getTrackList() {

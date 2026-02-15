@@ -94,12 +94,12 @@ public class SoundCloud {
     }
 
     public static String load(Request<Job> request, String... links) {
-        return load(null, request, links);
+        return load(null, request, null, links);
     }
 
-    public static String load(LoadCallback callback, Request<Job> request, String... links) {
+    public static String load(LoadCallback callback, Request<Job> request, Reporter reporter, String... links) {
         String id = UUID.randomUUID().toString();
-        Job job = Job.create(id, request, links);
+        Job job = Job.create(id, request, reporter, links);
         SoundCloud instance = getInstance();
         instance.cache.put(id, job);
         for (String link : links) {

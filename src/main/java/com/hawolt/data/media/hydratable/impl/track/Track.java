@@ -25,9 +25,9 @@ public class Track extends Hydratable {
     private Tags tags;
 
     private String description, title, genre, link, permalink, artwork, authorization, uri, waveform, secretToken;
-    private int likeCount, commentCount, playbackCount;
+    private int likeCount, commentCount, playbackCount, repostCount;
     private final long id;
-    private long duration, createdAt, fullDuration;
+    private long duration, createdAt, lastModified, fullDuration;
 
     public Track(long timestamp, long t) {
         super(timestamp);
@@ -54,8 +54,10 @@ public class Track extends Hydratable {
         this.id = !o.isNull("id") ? o.getLong("id") : 0;
         this.duration = !o.isNull("duration") ? o.getLong("duration") : 0;
         this.fullDuration = !o.isNull("full_duration") ? o.getLong("full_duration") : 0;
+        this.repostCount = !o.isNull("reposts_count") ? o.getInt("reposts_count") : 0;
         this.commentCount = !o.isNull("comment_count") ? o.getInt("comment_count") : 0;
         this.createdAt = Instant.parse(!o.isNull("created_at") ? o.getString("created_at") : String.valueOf(System.currentTimeMillis())).toEpochMilli();
+        this.lastModified = Instant.parse(!o.isNull("last_modified") ? o.getString("last_modified") : String.valueOf(0)).toEpochMilli();
         if (debug) Logger.debug("loaded metadata for track {} as {}", id, o);
     }
 
@@ -65,6 +67,14 @@ public class Track extends Hydratable {
 
     public MP3 getMP3() {
         return MP3.load(this, authorization, media.getTranscoding());
+    }
+
+    public long getLastModified() {
+        return lastModified;
+    }
+
+    public int getRepostCount() {
+        return repostCount;
     }
 
     public String getSecretToken() {

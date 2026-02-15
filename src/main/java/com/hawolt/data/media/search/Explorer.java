@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -52,7 +53,7 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
         String body = new String(response.body(), StandardCharsets.UTF_8);
         boolean array = body.startsWith("[") && body.endsWith("]");
         String plain = !array ? body : new JSONObject().put("collection", new JSONArray().put(new JSONObject(body.substring(1, body.length() - 1)))).toString();
-        return new Explorer<>(query.filter(), query.getTransformer(), new JSONObject(plain));
+        return new Explorer<>(query.filter(), query.getBooleanSupplier(), query.getTransformer(), new JSONObject(plain));
     }
 
     public static <T> LazyObjectCollection<T> browse(Query<T> query) throws Exception {
@@ -63,13 +64,15 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
         return new CompleteObjectCollection<>(explore(query));
     }
 
+    private final Function<JSONObject, Boolean> supplier;
     private final Function<JSONObject, T> transformer;
     private final Predicate<T> filter;
     private PartialCollection<T> collection;
     private JSONObject current;
 
-    public Explorer(Predicate<T> filter, Function<JSONObject, T> transformer, JSONObject object) {
+    public Explorer(Predicate<T> filter, Function<JSONObject, Boolean> supplier, Function<JSONObject, T> transformer, JSONObject object) {
         this.transformer = transformer;
+        this.supplier = supplier;
         this.current = object;
         this.filter = filter;
     }
@@ -81,9 +84,9 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
 
     @Override
     public PartialCollection<T> next() {
-        PartialCollection<T> collection = new PartialCollection<>(filter, transformer);
+        PartialCollection<T> collection = new PartialCollection<>(filter, supplier, transformer);
         if (this.collection == null) {
-            this.collection = new PartialCollection<>(filter, transformer, current.getJSONArray("collection"));
+            this.collection = new PartialCollection<>(filter, supplier, transformer, current.getJSONArray("collection"));
         } else {
             try {
                 this.collection = loadNext();
@@ -104,8 +107,8 @@ public class Explorer<T> implements Iterator<PartialCollection<T>> {
         MediaLoader loader = new MediaLoader(next);
         IonResponse response = loader.call();
         this.current = new JSONObject(new String(response.body(), StandardCharsets.UTF_8));
-        if (!current.has("collection")) return new PartialCollection<>(filter, transformer);
-        return new PartialCollection<>(filter, transformer, current.getJSONArray("collection"));
+        if (!current.has("collection")) return new PartialCollection<>(filter, supplier, transformer);
+        return new PartialCollection<>(filter, supplier, transformer, current.getJSONArray("collection"));
     }
 
 }

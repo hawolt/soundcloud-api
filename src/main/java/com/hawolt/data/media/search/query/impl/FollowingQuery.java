@@ -5,9 +5,9 @@ import com.hawolt.data.media.hydratable.impl.user.User;
 import com.hawolt.data.media.search.query.Query;
 import org.json.JSONObject;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
 
 
 public class FollowingQuery implements Query<User> {
@@ -37,6 +37,11 @@ public class FollowingQuery implements Query<User> {
     @Override
     public Predicate<User> filter() {
         return track -> true;
+    }
+
+    @Override
+    public Function<JSONObject, Boolean> getBooleanSupplier() {
+        return object -> true;
     }
 
     @Override

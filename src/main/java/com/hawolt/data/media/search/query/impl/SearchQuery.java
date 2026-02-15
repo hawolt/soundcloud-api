@@ -5,8 +5,8 @@ import com.hawolt.data.media.hydratable.impl.track.Track;
 import com.hawolt.data.media.search.query.AdvancedQuery;
 import org.json.JSONObject;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
-
 
 
 public class SearchQuery extends AdvancedQuery {
@@ -30,6 +30,11 @@ public class SearchQuery extends AdvancedQuery {
     @Override
     public String checksum() {
         return SHA256.hash(String.join(getClass().getSimpleName(), keyword));
+    }
+
+    @Override
+    public Function<JSONObject, Boolean> getBooleanSupplier() {
+        return object -> true;
     }
 
     @Override

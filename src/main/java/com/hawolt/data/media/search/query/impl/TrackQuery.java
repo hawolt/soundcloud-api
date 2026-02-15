@@ -5,9 +5,9 @@ import com.hawolt.data.media.hydratable.impl.track.Track;
 import com.hawolt.data.media.search.query.Query;
 import org.json.JSONObject;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
 
 
 public class TrackQuery implements Query<Track> {
@@ -52,6 +52,11 @@ public class TrackQuery implements Query<Track> {
     @Override
     public Predicate<Track> filter() {
         return track -> true;
+    }
+
+    @Override
+    public Function<JSONObject, Boolean> getBooleanSupplier() {
+        return object -> true;
     }
 
     @Override
