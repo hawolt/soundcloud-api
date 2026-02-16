@@ -7,67 +7,83 @@ import com.hawolt.logger.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 public class TrackFile implements IFile, FileCallback {
-    private static ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
-    private final AtomicInteger fragments = new AtomicInteger(0);
-    private final Map<Integer, TrackFragment> map = new HashMap<>();
-    private DownloadCallback callback;
-    private ExecutorService service;
-    private MP3 mp3;
 
-    public TrackFile(DownloadCallback callback, MP3 mp3) {
-        this(callback, mp3, EXECUTOR_SERVICE);
+    private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
+
+    public static ExecutorService getDefaultExecutor() {
+        return DEFAULT_EXECUTOR;
     }
 
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+
+    private final Map<Integer, TrackFragment> fragments = new ConcurrentHashMap<>();
+    private final AtomicInteger counter = new AtomicInteger(0);
+    private final DownloadCallback callback;
+    private final ExecutorService service;
+    private final int total;
+    private final MP3 mp3;
+
     private TrackFile(DownloadCallback callback, MP3 mp3, ExecutorService service) {
-        this.service = service;
         this.callback = callback;
+        this.service = service;
         this.mp3 = mp3;
-        EXTM3U extm3U = mp3.getEXTM3U();
-        if (extm3U == null) {
+
+        EXTM3U extm3u = mp3.getEXTM3U();
+        if (extm3u == null) {
+            this.total = 0;
             this.callback.onFailure(mp3.getTrack(), -1);
             return;
         }
-        List<String> list = extm3U.getFragmentList();
-        for (int i = 0; i < list.size(); i++) {
-            map.put(i, new TrackFragment(this, i, list.get(i)));
+
+        List<String> urls = extm3u.getFragmentList();
+        this.total = urls.size();
+
+        for (int i = 0; i < total; i++) {
+            fragments.put(i, new TrackFragment(this, i, urls.get(i)));
         }
-        for (int i = 0; i < list.size(); i++) {
-            TrackFragment fragment = map.get(i);
-            if (service != null) {
-                service.execute(fragment);
-            } else {
-                fragment.run();
-            }
+
+        for (int i = 0; i < total; i++) {
+            load(fragments.get(i));
         }
     }
 
-    public static TrackFile get(DownloadCallback callback, MP3 mp3, ExecutorService service) {
+    public static TrackFile create(DownloadCallback callback, MP3 mp3) {
+        return new TrackFile(callback, mp3, DEFAULT_EXECUTOR);
+    }
+
+    public static TrackFile create(DownloadCallback callback, MP3 mp3, ExecutorService service) {
         return new TrackFile(callback, mp3, service);
     }
 
-    public static TrackFile get(DownloadCallback callback, MP3 mp3) {
-        return new TrackFile(callback, mp3);
+    private void load(TrackFragment fragment) {
+        if (service != null) {
+            service.execute(fragment);
+        } else {
+            fragment.run();
+        }
     }
 
     @Override
-    public byte[] getBytes() {
+    public byte[] bytes() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        for (int i = 0; i < map.size(); i++) {
-            TrackFragment fragment = map.get(i);
+        for (int i = 0; i < total; i++) {
+            TrackFragment fragment = fragments.get(i);
+            if (fragment == null) {
+                Logger.error("Missing fragment {} during assembly", i);
+                continue;
+            }
             try {
-                out.write(fragment.getBytes());
+                out.write(fragment.bytes());
             } catch (IOException e) {
-                Logger.error(e);
+                Logger.error("Failed to write fragment {} during assembly: {}", i, e.getMessage());
             }
         }
         return out.toByteArray();
@@ -75,30 +91,37 @@ public class TrackFile implements IFile, FileCallback {
 
     @Override
     public void onAssembly(int index, IFile file) {
-        Logger.debug("Downloaded fragment [{}/{}] of {}", index, map.size() - 1, mp3.getTrack().getPermalink());
-        if (fragments.incrementAndGet() == map.size()) {
+        Logger.debug("Downloaded fragment [{}/{}] of {}", index, total - 1, mp3.getTrack().getPermalink());
+
+        if (counter.incrementAndGet() == total) {
             Logger.debug("Assembled track {}", mp3.getTrack().getPermalink());
-            final byte[] bytes = getBytes();
-            callback.onCompletion(mp3.getTrack(), bytes);
+            callback.onCompletion(mp3.getTrack(), bytes());
         }
     }
 
     @Override
     public void onFailure(int index, int attempt, String url) {
-        Logger.error("Failed to download fragment {}:{}", index, url);
-        if (attempt > 3) {
-            Logger.debug("Failed to download track {}", mp3.getTrack().getPermalink());
+        Logger.error("Failed to download fragment {}:{} (attempt {})", index, url, attempt);
+
+        if (attempt > MAX_RETRY_ATTEMPTS) {
+            Logger.debug("Exceeded max retries for track {}", mp3.getTrack().getPermalink());
             callback.onFailure(mp3.getTrack(), index);
         } else {
-            if (service != null) {
-                service.execute(map.get(index));
+            TrackFragment fragment = fragments.get(index);
+            if (fragment != null) {
+                load(fragment);
             } else {
-                map.get(index).run();
+                Logger.error("Cannot retry missing fragment {}", index);
+                callback.onFailure(mp3.getTrack(), index);
             }
         }
     }
 
-    public static ExecutorService getExecutorService() {
-        return EXECUTOR_SERVICE;
+    public int getTotal() {
+        return total;
+    }
+
+    public int getCompletedFragments() {
+        return counter.get();
     }
 }

@@ -1,4 +1,4 @@
-package com.hawolt.data.media.hydratable.impl.playlist;
+package com.hawolt.data.media.hydratable.impl;
 
 import com.hawolt.data.media.hydratable.Hydratable;
 import org.json.JSONArray;

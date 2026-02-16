@@ -15,7 +15,7 @@ public class SubstituteInstruction extends AbstractInstruction {
     }
 
     @Override
-    public String getName() {
+    public String name() {
         return "substitute";
     }
 }

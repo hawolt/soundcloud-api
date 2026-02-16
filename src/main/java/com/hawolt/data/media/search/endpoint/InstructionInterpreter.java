@@ -4,7 +4,10 @@ import com.hawolt.data.media.search.endpoint.impl.ClientInstruction;
 import com.hawolt.data.media.search.endpoint.impl.SubstituteInstruction;
 import com.hawolt.data.media.search.endpoint.impl.TimestampInstruction;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 public class InstructionInterpreter {

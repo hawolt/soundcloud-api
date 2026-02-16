@@ -16,7 +16,7 @@ public class ClientInstruction extends AbstractInstruction {
     }
 
     @Override
-    public String getName() {
+    public String name() {
         return "client";
     }
 }

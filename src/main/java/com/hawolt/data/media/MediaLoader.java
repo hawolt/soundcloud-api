@@ -38,7 +38,7 @@ public class MediaLoader implements Callable<IonResponse> {
             }
             IonRequest.SimpleBuilder builder = IonRequest.on(resource);
             builder.addHeader("Host", builder.hostname);
-            builder.addHeader("User-Agent", "SoundCloudAPI-V1.0.0-" + UUID.randomUUID().toString());
+            builder.addHeader("User-Agent", "SoundCloudAPI-V1.0.0-" + UUID.randomUUID());
             IonRequest request = builder.get();
             response = IonClient.getDefault().execute(request);
             code = response.code();

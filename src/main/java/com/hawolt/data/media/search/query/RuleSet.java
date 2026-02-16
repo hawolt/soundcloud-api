@@ -1,6 +1,6 @@
 package com.hawolt.data.media.search.query;
 
-import com.hawolt.data.media.hydratable.impl.track.Track;
+import com.hawolt.data.media.hydratable.impl.Track;
 
 import java.util.function.Predicate;
 

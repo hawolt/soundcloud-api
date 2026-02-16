@@ -1,116 +1,82 @@
 package com.hawolt.api;
 
-import com.hawolt.LoadCallback;
 import com.hawolt.SoundcloudInternal;
-import com.hawolt.data.media.ObjectCallback;
-import com.hawolt.data.media.hydratable.impl.playlist.Playlist;
-import com.hawolt.data.media.hydratable.impl.playlist.PlaylistManager;
-import com.hawolt.data.media.hydratable.impl.track.Track;
-import com.hawolt.data.media.hydratable.impl.track.TrackManager;
-import com.hawolt.data.media.hydratable.impl.user.User;
-import com.hawolt.data.media.hydratable.impl.user.UserManager;
-import com.hawolt.data.media.search.Explorer;
-import com.hawolt.data.media.search.query.CompleteObjectCollection;
-import com.hawolt.data.media.search.query.ObjectCollection;
-import com.hawolt.data.media.search.query.Query;
+import com.hawolt.data.media.hydratable.Hydratable;
+import com.hawolt.data.media.hydratable.impl.Playlist;
+import com.hawolt.data.media.hydratable.impl.Track;
+import com.hawolt.data.media.hydratable.impl.User;
+import com.hawolt.data.media.search.query.LazyTrackIterator;
 import com.hawolt.data.media.search.query.impl.LikeQuery;
-import com.hawolt.data.media.search.query.impl.TrackQuery;
-import com.hawolt.data.media.search.query.impl.UploadQuery;
 import com.hawolt.logger.Logger;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SoundCloud {
 
-    private static final SoundCloud INSTANCE = new SoundCloud();
-
-    static {
-        SoundcloudInternal.register(Playlist.class, new PlaylistManager(INSTANCE.playlistObjectCallback));
-        SoundcloudInternal.register(Track.class, new TrackManager(INSTANCE.trackObjectCallback));
-        SoundcloudInternal.register(User.class, new UserManager(INSTANCE.userObjectCallback));
+    public static Track loadTrack(String link) throws Exception {
+        Hydratable result = SoundcloudInternal.load(link);
+        if (result instanceof Track track) return track;
+        throw new IllegalArgumentException("Link does not resolve to a track: " + link);
     }
 
-    private final Map<Long, Track> tracks = new ConcurrentHashMap<>();
-    private final Map<String, Job> cache = new ConcurrentHashMap<>();
+    public static LazyTrackIterator loadPlaylist(String link) throws Exception {
+        Hydratable result = SoundcloudInternal.load(link);
+        if (result instanceof Playlist playlist) {
+            List<Long> ids = playlist.getList();
+            Logger.info("Playlist {} loaded with {} track IDs", link, ids.size());
+            return new LazyTrackIterator(
+                    ids,
+                    playlist.getId(),
+                    playlist.getSecret(),
+                    playlist.getLoadReferenceTimestamp()
+            );
+        }
+        throw new IllegalArgumentException("Link does not resolve to a playlist: " + link);
+    }
 
-    private Action<Playlist> action = (playlist, uuid, args) -> {
-        for (long id : playlist) {
+    public static LazyTrackIterator loadLikes(String link) throws Exception {
+        Hydratable result = SoundcloudInternal.load(link);
+        if (result instanceof User user) {
+            List<Long> ids = SoundcloudInternal.load(new LikeQuery(user.getUserId()));
+            Logger.info("User {} likes loaded with {} track IDs", user.getPermalink(), ids.size());
+            return new LazyTrackIterator(ids, 0, null, System.currentTimeMillis());
+        }
+        throw new IllegalArgumentException("Link does not resolve to a user: " + link);
+    }
+
+    public static void load(String link, Job callback) {
+        ExecutorService service = Executors.newSingleThreadExecutor();
+        service.execute(() -> {
             try {
-                TrackQuery query = new TrackQuery(
-                        playlist.getLoadReferenceTimestamp(),
-                        id,
-                        playlist.getId(),
-                        playlist.getSecret()
-                );
-                ObjectCollection<Track> collection = Explorer.browse(query);
-                for (Track track : collection) {
-                    if (tracks.containsKey(track.getId())) {
-                        cache.get(uuid).add(args[0], track);
-                    } else {
-                        SoundcloudInternal.load(track.getLink(), uuid, args[0]);
-                    }
+                Hydratable result = SoundcloudInternal.load(link);
+                if (result instanceof Track track) {
+                    callback.onResult(link, new Result.SingleTrack(track));
+                } else if (result instanceof Playlist playlist) {
+                    List<Long> ids = playlist.getList();
+                    Logger.info("Playlist {} loaded with {} track IDs", link, ids.size());
+                    LazyTrackIterator iterator = new LazyTrackIterator(
+                            ids,
+                            playlist.getId(),
+                            playlist.getSecret(),
+                            playlist.getLoadReferenceTimestamp()
+                    );
+                    callback.onResult(link, new Result.TrackCollection(iterator));
+                } else if (result instanceof User user) {
+                    List<Long> ids = SoundcloudInternal.load(new LikeQuery(user.getUserId()));
+                    Logger.info("User {} likes loaded with {} track IDs", user.getPermalink(), ids.size());
+                    LazyTrackIterator iterator = new LazyTrackIterator(
+                            ids, 0, null, System.currentTimeMillis()
+                    );
+                    callback.onResult(link, new Result.TrackCollection(iterator));
+                } else {
+                    callback.onFailure(link, new IllegalArgumentException("Unrecognized link: " + link));
                 }
             } catch (Exception e) {
-                Logger.error(e);
+                callback.onFailure(link, e);
             }
-        }
-    };
-
-    public final ObjectCallback<Track> trackObjectCallback = (link, track, args) -> {
-        Job target = cache.get(args[0]);
-        if (args.length > 1) {
-            target.add(args[1], track);
-        } else {
-            CompleteObjectCollection<Track> collection = new CompleteObjectCollection<>();
-            collection.getList().add(track);
-            target.complete(link, collection);
-        }
-        tracks.put(track.getId(), track);
-    };
-
-    public final ObjectCallback<User> userObjectCallback = (link, user, args) -> {
-        Query<Track> query;
-        if (link.endsWith("likes")) {
-            query = new LikeQuery(user.getUserId());
-        } else {
-            query = new UploadQuery(user.getUserId());
-        }
-        try {
-            cache.get(args[0]).complete(link, Explorer.search(query));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    };
-
-    public final ObjectCallback<Playlist> playlistObjectCallback = (link, playlist, args) -> {
-        this.cache.get(args[0]).update(link, playlist);
-        this.action.handle(playlist, args[0], link);
-    };
-
-    public void configure(Action<Playlist> action) {
-        this.action = action;
-    }
-
-    public static String load(Request<Job> request, String... links) {
-        return load(null, request, null, links);
-    }
-
-    public static String load(LoadCallback callback, Request<Job> request, Reporter reporter, String... links) {
-        String id = UUID.randomUUID().toString();
-        Job job = Job.create(id, request, reporter, links);
-        SoundCloud instance = getInstance();
-        instance.cache.put(id, job);
-        for (String link : links) {
-            Logger.info("Load {}", link);
-            SoundcloudInternal.load(link, callback, id);
-        }
-        return id;
-    }
-
-    public static SoundCloud getInstance() {
-        return INSTANCE;
+        });
+        service.shutdown();
     }
 }

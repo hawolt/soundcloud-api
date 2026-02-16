@@ -11,10 +11,6 @@ public class CompleteObjectCollection<T> extends ObjectCollection<T> {
 
     private final List<T> list = new ArrayList<>();
 
-    public CompleteObjectCollection() {
-        super(null);
-    }
-
     public CompleteObjectCollection(Explorer<T> explorer) {
         super(explorer);
         while (explorer.hasNext()) {

@@ -1,4 +1,4 @@
-package com.hawolt.data.media.hydratable.impl.user;
+package com.hawolt.data.media.hydratable.impl;
 
 import com.hawolt.data.media.hydratable.Hydratable;
 import org.json.JSONObject;

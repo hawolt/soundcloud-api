@@ -1,20 +1,16 @@
 package com.hawolt.data.media.search.query;
 
-import com.hawolt.data.SHA256;
-import com.hawolt.data.media.hydratable.impl.track.Track;
-import com.hawolt.data.media.hydratable.impl.user.User;
+import com.hawolt.data.media.hydratable.impl.Track;
+import com.hawolt.data.media.hydratable.impl.User;
 import com.hawolt.logger.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 public abstract class AdvancedQuery implements RuleSet, Query<Track> {
@@ -167,28 +163,6 @@ public abstract class AdvancedQuery implements RuleSet, Query<Track> {
 
     public List<String> getBlacklistedTags() {
         return blacklistedTags;
-    }
-
-    @Override
-    public String checksum() {
-        BigInteger integer = new BigInteger("0")
-                .add(BigInteger.valueOf(minStream))
-                .add(BigInteger.valueOf(minLike))
-                .add(BigInteger.valueOf(minDuration))
-                .add(BigInteger.valueOf(minTimestamp))
-                .add(BigInteger.valueOf(maxStream))
-                .add(BigInteger.valueOf(maxLike))
-                .add(BigInteger.valueOf(maxDuration))
-                .add(BigInteger.valueOf(maxTimestamp));
-        Stream<String> tagStream = Stream.concat(
-                mandatoryTags.stream().map(tag -> "m:" + tag),
-                blacklistedTags.stream().map(tag -> "b:" + tag)
-        );
-        String plain = Stream.concat(
-                Stream.of(integer.toString()),
-                tagStream
-        ).collect(Collectors.joining());
-        return SHA256.hash(getKeyword() + plain);
     }
 
     @Override

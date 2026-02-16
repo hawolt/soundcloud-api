@@ -3,22 +3,44 @@ package com.hawolt.data.media.track;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Tags {
 
-    private final List<String> list = new ArrayList<>();
+    private static final Pattern QUOTED_TAG_PATTERN = Pattern.compile("\"([^\"]*)\"");
+
+    private final List<String> list;
 
     public Tags(String genre, String tagline) {
-        int indexOf;
-        while ((indexOf = tagline.indexOf("\"")) != -1) {
-            int endIndex = tagline.indexOf("\"", indexOf + 1);
-            list.add(tagline.substring(indexOf + 1, endIndex));
-            tagline = tagline.replace(tagline.substring(indexOf, endIndex + 1), "");
+        List<String> tags = new ArrayList<>();
+
+        if (tagline != null && !tagline.isEmpty()) {
+
+            Matcher matcher = QUOTED_TAG_PATTERN.matcher(tagline);
+            while (matcher.find()) {
+                String quoted = matcher.group(1).trim();
+                if (!quoted.isEmpty()) {
+                    tags.add(quoted);
+                }
+            }
+
+            String remainder = QUOTED_TAG_PATTERN.matcher(tagline).replaceAll("").trim();
+            if (!remainder.isEmpty()) {
+                for (String tag : remainder.split("\\s+")) {
+                    if (!tag.isEmpty()) {
+                        tags.add(tag);
+                    }
+                }
+            }
         }
-        Collections.addAll(list, tagline.split(" "));
-        list.add(genre);
+
+        if (genre != null && !genre.isEmpty()) {
+            tags.add(genre);
+        }
+
+        this.list = Collections.unmodifiableList(tags);
     }
 
     public boolean contains(String tag) {
@@ -26,20 +48,28 @@ public class Tags {
     }
 
     public boolean anyContains(String t) {
-        return list.stream().anyMatch(tag -> tag.toLowerCase().contains(t.toLowerCase()));
+        String lower = t.toLowerCase();
+        return list.stream().anyMatch(tag -> tag.toLowerCase().contains(lower));
     }
 
     public boolean anyMatch(String expression) {
         return list.stream().anyMatch(tag -> tag.matches(expression));
     }
 
+    public boolean isEmpty() {
+        return list.isEmpty();
+    }
+
+    public int size() {
+        return list.size();
+    }
+
+    @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
-        for (String tag : list) {
-            if (tag.length() > 0) builder.append("#").append(tag).append(", ");
-        }
-        if (builder.length() > 0) builder.setLength(builder.length() - 2);
-        return builder.toString().trim();
+        return list.stream()
+                .filter(tag -> !tag.isEmpty())
+                .map(tag -> "#" + tag)
+                .collect(Collectors.joining(", "));
     }
 
     public List<String> getList() {

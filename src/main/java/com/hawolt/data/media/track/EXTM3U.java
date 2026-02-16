@@ -2,7 +2,6 @@ package com.hawolt.data.media.track;
 
 import com.hawolt.data.media.MediaLoader;
 import com.hawolt.ionhttp.request.IonResponse;
-import com.hawolt.logger.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;

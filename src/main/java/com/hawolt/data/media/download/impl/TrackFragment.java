@@ -21,7 +21,7 @@ public class TrackFragment implements Runnable, IFile {
         this.url = url;
     }
 
-    public byte[] getBytes() {
+    public byte[] bytes() {
         return b;
     }
 
@@ -29,8 +29,9 @@ public class TrackFragment implements Runnable, IFile {
     public void run() {
         try {
             MediaLoader loader = new MediaLoader(url);
-            IonResponse response = loader.call();
-            this.b = response.body();
+            try (IonResponse response = loader.call()) {
+                this.b = response.body();
+            }
             callback.onAssembly(index, this);
         } catch (Exception e) {
             Logger.error(e);

@@ -1,11 +1,9 @@
 package com.hawolt.data.media.search.query.impl;
 
-import com.hawolt.data.SHA256;
-import com.hawolt.data.media.hydratable.impl.track.Track;
+import com.hawolt.data.media.hydratable.impl.Track;
 import com.hawolt.data.media.search.query.AdvancedQuery;
 import org.json.JSONObject;
 
-import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 
@@ -25,11 +23,6 @@ public class TagQuery extends AdvancedQuery {
     @Override
     public String getKeyword() {
         return tag;
-    }
-
-    @Override
-    public String checksum() {
-        return SHA256.hash(String.join(getClass().getSimpleName(), tag));
     }
 
     @Override
