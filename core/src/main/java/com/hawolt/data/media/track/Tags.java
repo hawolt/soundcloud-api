@@ -68,7 +68,6 @@ public class Tags {
     public String toString() {
         return list.stream()
                 .filter(tag -> !tag.isEmpty())
-                .map(tag -> "#" + tag)
                 .collect(Collectors.joining(", "));
     }
 

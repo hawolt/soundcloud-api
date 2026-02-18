@@ -6,14 +6,15 @@ import com.hawolt.data.media.download.IFile;
 import com.hawolt.ionhttp.request.IonResponse;
 import com.hawolt.logger.Logger;
 
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TrackFragment implements Runnable, IFile {
 
+    private final AtomicInteger failures = new AtomicInteger(0);
     private final FileCallback callback;
+    private volatile byte[] b;
     private final String url;
     private final int index;
-    private int failures;
-    private byte[] b;
 
     public TrackFragment(FileCallback callback, int index, String url) {
         this.callback = callback;
@@ -35,7 +36,7 @@ public class TrackFragment implements Runnable, IFile {
             callback.onAssembly(index, this);
         } catch (Exception e) {
             Logger.error(e);
-            callback.onFailure(index, failures++, url);
+            callback.onFailure(index, failures.getAndIncrement(), url);
         }
     }
 }

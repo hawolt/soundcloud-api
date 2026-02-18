@@ -1,15 +1,18 @@
 package com.hawolt.data.media.hydratable.impl;
 
+import com.hawolt.data.media.MediaLoader;
 import com.hawolt.data.media.download.FileManager;
 import com.hawolt.data.media.hydratable.Hydratable;
 import com.hawolt.data.media.track.MP3;
 import com.hawolt.data.media.track.Media;
 import com.hawolt.data.media.track.Tags;
 import com.hawolt.data.media.track.User;
+import com.hawolt.ionhttp.request.IonResponse;
 import com.hawolt.logger.Logger;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.Instant;
 
 public class Track extends Hydratable {
@@ -44,6 +47,8 @@ public class Track extends Hydratable {
     private final long lastModified;
     private final long fullDuration;
 
+    private final JSONObject source;
+
     public Track(long timestamp, long id) {
         super(timestamp);
         this.id = id;
@@ -68,6 +73,7 @@ public class Track extends Hydratable {
         this.createdAt = 0;
         this.lastModified = 0;
         this.fullDuration = 0;
+        this.source = new JSONObject();
     }
 
     public Track(long timestamp, JSONObject o) {
@@ -94,9 +100,18 @@ public class Track extends Hydratable {
         this.fullDuration = getOrDefault(o, "full_duration", 0L);
         this.createdAt = parseTimestamp(o, "created_at", System.currentTimeMillis());
         this.lastModified = parseTimestamp(o, "last_modified", 0L);
-
+        this.source = o;
         if (debug) {
             Logger.debug("loaded metadata for track {} as {}", id, o);
+        }
+    }
+
+    public byte[] loadArtwork() throws IOException {
+        MediaLoader loader = new MediaLoader(artwork);
+        try (IonResponse response = loader.call()) {
+            return response.body();
+        } catch (Exception e) {
+            throw new IOException("Failed to load artwork for track " + title);
         }
     }
 
@@ -118,6 +133,10 @@ public class Track extends Hydratable {
 
     private static long parseTimestamp(JSONObject o, String key, long defaultValue) {
         return o.isNull(key) ? defaultValue : Instant.parse(o.getString(key)).toEpochMilli();
+    }
+
+    public JSONObject getSource() {
+        return source;
     }
 
     public MP3 getMP3() {

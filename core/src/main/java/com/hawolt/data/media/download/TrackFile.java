@@ -1,12 +1,17 @@
 package com.hawolt.data.media.download;
 
 import com.hawolt.data.media.download.impl.TrackFragment;
+import com.hawolt.data.media.hydratable.impl.Track;
 import com.hawolt.data.media.track.EXTM3U;
 import com.hawolt.data.media.track.MP3;
+import com.hawolt.ffmpeg.AudioConverter;
 import com.hawolt.logger.Logger;
+import org.checkerframework.checker.units.qual.A;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,13 +21,38 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TrackFile implements IFile, FileCallback {
 
-    private static final ExecutorService DEFAULT_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static volatile ExecutorService DEFAULT_EXECUTOR = Executors.newFixedThreadPool(1);
+
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+
+    private static AudioConverter AUDIO_CONVERTER;
+
+    static {
+        try {
+            AUDIO_CONVERTER = new AudioConverter();
+        } catch (IOException e) {
+            Logger.error("""
+                    You can add this dependency to have FFmpeg work as plug-and-play
+                    
+                            <dependency>
+                                <groupId>org.bytedeco</groupId>
+                                <artifactId>ffmpeg-platform</artifactId>
+                                <version>7.1.1-1.5.12</version>
+                                <scope>compile</scope>
+                            </dependency>
+                    """);
+            Logger.error("Failed to initialize AudioConverter, track data will be served raw.");
+        }
+    }
 
     public static ExecutorService getDefaultExecutor() {
         return DEFAULT_EXECUTOR;
     }
 
-    private static final int MAX_RETRY_ATTEMPTS = 3;
+    public static void setDefaultExecutor(ExecutorService executor) {
+        DEFAULT_EXECUTOR = executor;
+    }
+
 
     private final Map<Integer, TrackFragment> fragments = new ConcurrentHashMap<>();
     private final AtomicInteger counter = new AtomicInteger(0);
@@ -91,11 +121,45 @@ public class TrackFile implements IFile, FileCallback {
 
     @Override
     public void onAssembly(int index, IFile file) {
-        Logger.debug("Downloaded fragment [{}/{}] of {}", index, total - 1, mp3.getTrack().getPermalink());
+        Track track = mp3.getTrack();
+
+        Logger.debug("Downloaded fragment [{}/{}] of {}", index, total - 1, track.getPermalink());
 
         if (counter.incrementAndGet() == total) {
-            Logger.debug("Assembled track {}", mp3.getTrack().getPermalink());
-            callback.onCompletion(mp3.getTrack(), bytes());
+            Logger.debug("Assembled track {}", track.getPermalink());
+
+            byte[] bytes = bytes();
+
+            if (AUDIO_CONVERTER != null) {
+                try {
+                    bytes = AUDIO_CONVERTER.convertToMP3(bytes());
+                } catch (IOException e) {
+                    Logger.error("Failed to convert to MP3, continue with original content");
+                }
+            }
+
+            ID3TagWriter writer = new ID3TagWriter()
+                    .title(track.getTitle())
+                    .year(String.valueOf(Instant.ofEpochMilli(track.getCreatedAt()).atZone(ZoneId.of("UTC")).getYear()))
+                    .artist(track.getUser() != null ? track.getUser().getPermalink() : null)
+                    .genre(track.getGenre())
+                    .comment(track.getLink());
+
+            Logger.debug("Loading artwork for {}", track.getPermalink());
+
+            try {
+                byte[] artwork = track.loadArtwork();
+                writer.artwork(artwork, "image/jpeg");
+            } catch (IOException e) {
+                Logger.debug("Failed to load artwork for {}", track.getPermalink());
+            }
+
+            try {
+                callback.onCompletion(track, writer.apply(bytes));
+            } catch (IOException e) {
+                Logger.debug("Failed to write ID3Tag for {}", track.getPermalink());
+                callback.onCompletion(track, bytes);
+            }
         }
     }
 
