@@ -1,5 +1,6 @@
 .idea/*
-target/*
+target/
+test/
 SoundCloud.iml
 dump/*
 src/test/java/interactive/gitignore/*
