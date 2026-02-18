@@ -37,7 +37,7 @@
         <dependency>
             <groupId>com.github.hawolt</groupId>
             <artifactId>ion-http</artifactId>
-            <version>b6150d650b</version>
+            <version>2cd29b8681</version>
         </dependency>
     </dependencies>
 </project>

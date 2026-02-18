@@ -34,6 +34,7 @@ public class Track extends Hydratable {
     private final String artwork;
     private final String authorization;
     private final String uri;
+    private final String policy;
     private final String waveform;
     private final String secretToken;
 
@@ -73,6 +74,7 @@ public class Track extends Hydratable {
         this.createdAt = 0;
         this.lastModified = 0;
         this.fullDuration = 0;
+        this.policy = "";
         this.source = new JSONObject();
     }
 
@@ -81,6 +83,7 @@ public class Track extends Hydratable {
         this.id = getOrDefault(o, "id", 0L);
         this.secretToken = getNullableString(o, "secret_token");
         this.waveform = getNullableString(o, "waveform_url");
+        this.policy = getOrDefault(o, "policy", "ALLOW");
         this.authorization = getNullableString(o, "track_authorization");
         this.artwork = getNullableString(o, "artwork_url");
         this.media = new Media(o.getJSONObject("media"));
@@ -185,6 +188,10 @@ public class Track extends Hydratable {
 
     public String getUri() {
         return uri;
+    }
+
+    public String getPolicy() {
+        return policy;
     }
 
     public String getWaveformURL() {

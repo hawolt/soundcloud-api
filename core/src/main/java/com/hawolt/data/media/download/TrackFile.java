@@ -1,5 +1,6 @@
 package com.hawolt.data.media.download;
 
+import com.hawolt.SoundcloudInternal;
 import com.hawolt.data.media.download.impl.TrackFragment;
 import com.hawolt.data.media.hydratable.impl.Track;
 import com.hawolt.data.media.track.EXTM3U;
@@ -138,26 +139,30 @@ public class TrackFile implements IFile, FileCallback {
                 }
             }
 
-            ID3TagWriter writer = new ID3TagWriter()
-                    .title(track.getTitle())
-                    .year(String.valueOf(Instant.ofEpochMilli(track.getCreatedAt()).atZone(ZoneId.of("UTC")).getYear()))
-                    .artist(track.getUser() != null ? track.getUser().getPermalink() : null)
-                    .genre(track.getGenre())
-                    .comment(track.getLink());
+            if (SoundcloudInternal.writeID3Tag) {
+                ID3TagWriter writer = new ID3TagWriter()
+                        .title(track.getTitle())
+                        .year(String.valueOf(Instant.ofEpochMilli(track.getCreatedAt()).atZone(ZoneId.of("UTC")).getYear()))
+                        .artist(track.getUser() != null ? track.getUser().getPermalink() : null)
+                        .genre(track.getGenre())
+                        .comment(track.getLink());
 
-            Logger.debug("Loading artwork for {}", track.getPermalink());
+                Logger.debug("Loading artwork for {}", track.getPermalink());
 
-            try {
-                byte[] artwork = track.loadArtwork();
-                writer.artwork(artwork, "image/jpeg");
-            } catch (IOException e) {
-                Logger.debug("Failed to load artwork for {}", track.getPermalink());
-            }
+                try {
+                    byte[] artwork = track.loadArtwork();
+                    writer.artwork(artwork, "image/jpeg");
+                } catch (IOException e) {
+                    Logger.debug("Failed to load artwork for {}", track.getPermalink());
+                }
 
-            try {
-                callback.onCompletion(track, writer.apply(bytes));
-            } catch (IOException e) {
-                Logger.debug("Failed to write ID3Tag for {}", track.getPermalink());
+                try {
+                    callback.onCompletion(track, writer.apply(bytes));
+                } catch (IOException e) {
+                    Logger.debug("Failed to write ID3Tag for {}", track.getPermalink());
+                    callback.onCompletion(track, bytes);
+                }
+            } else {
                 callback.onCompletion(track, bytes);
             }
         }

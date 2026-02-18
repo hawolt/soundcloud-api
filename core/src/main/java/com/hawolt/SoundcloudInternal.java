@@ -25,6 +25,8 @@ import java.util.Map;
 public class SoundcloudInternal {
     private static final Map<String, MediaInterface<? extends Hydratable>> MAPPING = new HashMap<>();
 
+    public static boolean writeID3Tag;
+
     static {
         MAPPING.put("user", User::new);
         MAPPING.put("playlist", Playlist::new);
